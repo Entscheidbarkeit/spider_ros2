@@ -63,11 +63,11 @@ class LgpioServoBackend : public IServoBackend {
     return true;
   }
 
-  bool setPulse(int index, int pulse_us) override {
+  bool setPulse(int index, int pulse_us, int offset) override {
     if (handle_ == kInvalidHandle || index < 0 || index >= kPrimaryServoChannels) {
       return false;
     }
-    lgTxServo(handle_, cfg_.gpio_servo[index], pulse_us, cfg_.freq_hz, cfg_.offset_us[index], cfg_.cycles);
+    lgTxServo(handle_, cfg_.gpio_servo[index], pulse_us+offset, cfg_.freq_hz, cfg_.offset_us[index], cfg_.cycles);
     return true;
   }
 
@@ -78,6 +78,13 @@ class LgpioServoBackend : public IServoBackend {
     lgTxServo(handle_, cfg_.gpio_servo[0], pulse0_us, cfg_.freq_hz, cfg_.offset_us[0], cfg_.cycles);
     lgTxServo(handle_, cfg_.gpio_servo[1], pulse1_us, cfg_.freq_hz, cfg_.offset_us[1], cfg_.cycles);
     return true;
+  }
+    bool setAllPulse(int pulse0_us, int pulse1_us, int pulse2_us, int pulse3_us) override{
+    const bool ok0 = setPulse(0, pulse0_us,0);
+    const bool ok1 = setPulse(1, pulse1_us,0);
+    const bool ok2 = setPulse(2, pulse2_us,0);
+    const bool ok3 = setPulse(3, pulse3_us,0);
+    return ok0 && ok1 && ok2 &&ok3;
   }
 
   void shutdown() override {

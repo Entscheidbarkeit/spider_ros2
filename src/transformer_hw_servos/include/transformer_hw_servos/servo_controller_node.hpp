@@ -28,7 +28,7 @@ namespace transformer_hw_servos {
 /**
  * @brief Hardware-safe minimum pulse width supported by attached servos (microseconds).
  */
-inline constexpr int kHardwarePulseMinUs = 400;
+inline constexpr int kHardwarePulseMinUs = 500;
 
 /**
  * @brief Hardware-safe maximum pulse width supported by attached servos (microseconds).
@@ -333,6 +333,7 @@ class ServoControllerNode : public rclcpp::Node {
   // ===== Data members =====
 
   std::string backend_type_;
+  const std::vector<int> servoOffset = {-30,20,50,20,0,0,0,0,0,0,0,0,0,0,0,0};
   int period_us_ = kDefaultPeriodUs;
   int frequency_hz_ = 0;
   int min_pulse_us_ = 0;

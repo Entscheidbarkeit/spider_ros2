@@ -1,3 +1,4 @@
+// 建立基础msp通信的字符串包
 // Implements helpers for constructing MSP frames used for outbound traffic.
 #include "transformer_msp_bridge/msp_builders.hpp"
 #include "transformer_msp_bridge/crc.hpp"

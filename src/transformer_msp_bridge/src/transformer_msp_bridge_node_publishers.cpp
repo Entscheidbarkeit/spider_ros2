@@ -1,3 +1,4 @@
+//该节点单独定义了该节点的public的各类函数
 #include "transformer_msp_bridge/transformer_msp_bridge_node.hpp"
 
 #include <algorithm>

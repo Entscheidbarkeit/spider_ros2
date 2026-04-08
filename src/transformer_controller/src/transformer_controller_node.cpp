@@ -18,7 +18,7 @@ TransformerControllerNode::TransformerControllerNode() : Node(std::string(kNodeN
   // INIT state persists until the retract completes; ensures transforms are rejected beforehand.
   SetCurrentMode(Mode::kInit);
 
-  // Periodic timer checks action server readiness without blocking spin.
+  // Periodic timer checks action servers until they are ready.
   startup_timer_ = create_wall_timer(kStartupTimerPeriod, [this]() { StartInitializationTick(); });
 
   // Register cleanup callback so external shutdown signals drain worker threads cleanly.
@@ -72,9 +72,7 @@ void TransformerControllerNode::StartInitializationTick() {
 
 void TransformerControllerNode::RunStartupRetract() {
   // Helper ensures the motion-active flag always clears even on early returns.
-  auto clear_motion_flag = [this]() {
-    startup_motion_active_.store(false);
-  };
+  auto clear_motion_flag = [this]() { startup_motion_active_.store(false); };
 
   bool success = RetractActuators();
   clear_motion_flag();
@@ -454,6 +452,7 @@ bool TransformerControllerNode::MoveServos(int pulse) {
     return false;
   }
 
+  RCLCPP_INFO(get_logger(), "Servo move successfully");
   return true;
 }
 

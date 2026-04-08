@@ -1,3 +1,4 @@
+// 该文件单独定义了节点的decoder的configuration
 #include "transformer_msp_bridge/transformer_msp_bridge_node.hpp"
 
 #include "transformer_msp_bridge/decoders/altitude_decoder.hpp"
@@ -13,7 +14,6 @@
 
 namespace transformer_msp_bridge
 {
-
 void TransformerMspBridgeNode::configureDecoders()
 {
   decoders_.clear();

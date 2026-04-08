@@ -234,7 +234,7 @@ class TransformerControllerNode : public rclcpp::Node {
 
   // Shared channel mappings used when building action goals.
   inline static constexpr std::array<int, 2> kActuatorIds{0, 1};
-  inline static constexpr std::array<int, 2> kServoChannels{1, 2};
+  inline static constexpr std::array<int, 4> kServoChannels{1, 2,3,4};
 
   ControllerConfig config_{};
 

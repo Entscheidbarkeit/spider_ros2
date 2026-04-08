@@ -37,7 +37,7 @@ constexpr uint16_t kTickMask = 0x0FFF;
 constexpr std::chrono::milliseconds kDeviceWakeDelay{5};
 constexpr double kMicrosecondsPerSecond = 1'000'000.0;
 
-constexpr int kPrimaryServoChannels = 2;
+constexpr int kPrimaryServoChannels = 4; 
 constexpr int kMaxSupportedChannels = 6;
 constexpr int kTotalDeviceChannels = 16;
 constexpr int kMinPrescale = 3;
@@ -91,6 +91,8 @@ class Pca9685Backend : public IServoBackend {
       return false;
     }
     if (ioctl(fd_, I2C_SLAVE, cfg_.pca9685_address) < 0) {
+      ::close(fd_);
+      fd_ = -1;
       return false;
     }
 
@@ -116,12 +118,12 @@ class Pca9685Backend : public IServoBackend {
     WriteRegister(fd_, kRegMode2, kMode2TotemPole);  // Totem pole, non-inverted, update on STOP.
 
     for (int index = 0; index < cfg_.channels_in_use && index < kTotalDeviceChannels; ++index) {
-      setPulse(index, cfg_.initial_pulse_us[index]);
+      setPulse(index, cfg_.initial_pulse_us[index],0); // initial pulse without offset
     }
     return true;
   }
 
-  bool setPulse(int index, int pulse_us) override {
+  bool setPulse(int index, int pulse_us, int offset) override {
     if (fd_ < 0 || index < 0) {
       return false;
     }
@@ -138,16 +140,23 @@ class Pca9685Backend : public IServoBackend {
     const double ticks_per_us = kPwmResolutionTicks / period_us;
     const int offset_us = cfg_.offset_us[index];
     const int on_count = static_cast<int>(std::fmod(offset_us * ticks_per_us, kPwmResolutionTicks));
-    int pulse_ticks = static_cast<int>(pulse_us * ticks_per_us + 0.5);
+    int pulse_ticks = static_cast<int>((pulse_us + offset) * ticks_per_us + 0.5);
     pulse_ticks = std::clamp(pulse_ticks, 0, static_cast<int>(kMaxTickValue));
     const int off_count = (on_count + pulse_ticks) & kTickMask;
     return WriteChannel(fd_, hardware_channel, static_cast<uint16_t>(on_count), static_cast<uint16_t>(off_count));
   }
 
-  bool setDualPulse(int pulse0_us, int pulse1_us) override {
-    const bool ok0 = setPulse(0, pulse0_us);
-    const bool ok1 = setPulse(1, pulse1_us);
+  bool setDualPulse(int pulse0_us, int pulse1_us) override { // this function is possible deprecated, the offset here are dummy params
+    const bool ok0 = setPulse(0, pulse0_us, 0);
+    const bool ok1 = setPulse(1, pulse1_us, 0);
     return ok0 && ok1;
+  }
+  bool setAllPulse(int pulse0_us, int pulse1_us, int pulse2_us, int pulse3_us) override{ // this function is possible deprecated, the offset here are dummy params
+    const bool ok0 = setPulse(0, pulse0_us,0);
+    const bool ok1 = setPulse(1, pulse1_us,0);
+    const bool ok2 = setPulse(2, pulse2_us,0);
+    const bool ok3 = setPulse(3, pulse3_us,0);
+    return ok0 && ok1 && ok2 &&ok3;
   }
 
   void shutdown() override {

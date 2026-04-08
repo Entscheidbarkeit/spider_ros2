@@ -27,6 +27,8 @@ constexpr double kCompleteFraction = 1.0;
 constexpr double kPositiveDirection = 1.0;
 constexpr double kNegativeDirection = -1.0;
 
+
+
 /**
  * @brief Returns a human-readable profile name based on trapezoid configuration.
  * @param use_trapezoid True when a multi-phase profile is active.
@@ -81,7 +83,7 @@ void ServoControllerNode::LoadParameters() {
   period_us_ = declare_parameter<int>("period_us", kDefaultPeriodUs);
   min_pulse_us_ = declare_parameter<int>("min_us", 1'350);
   max_pulse_us_ = declare_parameter<int>("max_us", kHardwarePulseMaxUs);
-  initial_pulse_us_ = declare_parameter<int>("initial_us", 1'500);
+  initial_pulse_us_ = declare_parameter<int>("initial_us", 900);
   channels_in_use_ = declare_parameter<int>("channels_in_use", 1);
 
   // Mechanical offsets let us compensate per-servo center or linkage bias.
@@ -160,7 +162,7 @@ void ServoControllerNode::ApplyInitialPulses() {
   for (int channel = 0; channel < channels_in_use_; ++channel) {
     const int offset = GetPositionOffset(channel);
     const int physical_pulse = ClampHardwarePulse(logical_pulses_us_.at(static_cast<std::size_t>(channel)) + offset);
-    backend_->setPulse(channel, physical_pulse);
+    backend_->setPulse(channel, physical_pulse, this->servoOffset.at(channel));
   }
 }
 
@@ -211,7 +213,7 @@ void ServoControllerNode::BeginShutdown() {
                                     ? logical_pulses_us_.at(static_cast<std::size_t>(channel))
                                     : ClampLogicalPulse(initial_pulse_us_);
       const int physical_pulse = ClampHardwarePulse(logical_pulse + GetPositionOffset(channel));
-      backend_->setPulse(channel, physical_pulse);
+      backend_->setPulse(channel, physical_pulse, this->servoOffset.at(channel));
     }
   }
 
@@ -454,7 +456,7 @@ bool ServoControllerNode::ExecuteMotionProfile(const std::shared_ptr<GoalHandleM
       const double physical_value = state.physical_start_us + (state.direction * travelled);
       const int physical_pulse = ClampHardwarePulse(static_cast<int>(std::round(physical_value)));
 
-      backend_->setPulse(state.channel_index, physical_pulse);
+      backend_->setPulse(state.channel_index, physical_pulse, this->servoOffset.at(state.channel_index));
 
       const int logical_value = ClampLogicalPulse(physical_pulse - state.position_offset_us);
       logical_pulses_us_[state.channel_index] = logical_value;
@@ -667,7 +669,7 @@ void ServoControllerNode::PublishSuccessResult(const std::shared_ptr<GoalHandleM
                                                double estimated_duration_s, const std::string& result_message) {
   // Sync internal cache and hardware to the final target before notifying the client of success.
   for (const auto& state : channel_states) {
-    backend_->setPulse(state.channel_index, state.physical_target_us);
+    backend_->setPulse(state.channel_index, state.physical_target_us, this->servoOffset.at(state.channel_index));
     logical_pulses_us_[state.channel_index] = logical_target_us;
   }
 
