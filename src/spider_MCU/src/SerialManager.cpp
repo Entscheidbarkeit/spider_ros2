@@ -8,6 +8,8 @@
 #include <termios.h>
 #include <unistd.h>
 
+#include <rclcpp/rclcpp.hpp>
+
 namespace MCU
 {
 namespace
@@ -87,28 +89,60 @@ bool SerialManager::write_line(const std::string & line)
 
 bool SerialManager::write_bytes(const std::string & bytes)
 {
-  std::lock_guard<std::mutex> lock(mutex_);
+  int local_fd = -1;
 
-  if (!connected_ || fd_ < 0) {
-    return false;
+  const auto t_lock_start = std::chrono::steady_clock::now();
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!connected_ || fd_ < 0) {
+      return false;
+    }
+    local_fd = fd_;
   }
+  const auto t_lock_end = std::chrono::steady_clock::now();
 
   std::size_t total_written = 0;
   while (total_written < bytes.size()) {
+    const auto t_write_start = std::chrono::steady_clock::now();
+
     const ssize_t written = ::write(
-      fd_,
+      local_fd,
       bytes.data() + total_written,
       bytes.size() - total_written);
+
+    const auto t_write_end = std::chrono::steady_clock::now();
 
     if (written < 0) {
       if (errno == EINTR) {
         continue;
       }
-      connected_ = false;
+
+      {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (fd_ == local_fd) {
+          connected_ = false;
+        }
+      }
+
+      RCLCPP_WARN(
+        rclcpp::get_logger("serial_manager"),
+        "write() failed: errno=%d (%s)",
+        errno, std::strerror(errno));
+
       return false;
     }
 
     total_written += static_cast<std::size_t>(written);
+
+    const auto lock_wait_ms =
+      std::chrono::duration_cast<std::chrono::milliseconds>(t_lock_end - t_lock_start).count();
+    const auto syscall_ms =
+      std::chrono::duration_cast<std::chrono::milliseconds>(t_write_end - t_write_start).count();
+
+    RCLCPP_INFO(
+      rclcpp::get_logger("serial_manager"),
+      "write_bytes: lock_wait=%ld ms, syscall=%ld ms, wrote=%zd bytes",
+      lock_wait_ms, syscall_ms, written);
   }
 
   return true;
@@ -116,10 +150,13 @@ bool SerialManager::write_bytes(const std::string & bytes)
 
 std::optional<std::string> SerialManager::read_line(std::chrono::milliseconds timeout)
 {
-  std::lock_guard<std::mutex> lock(mutex_);
-
-  if (!connected_ || fd_ < 0) {
-    return std::nullopt;
+  int local_fd = -1;
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!connected_ || fd_ < 0) {
+      return std::nullopt;
+    }
+    local_fd = fd_;
   }
 
   const auto deadline = std::chrono::steady_clock::now() + timeout;
@@ -138,7 +175,7 @@ std::optional<std::string> SerialManager::read_line(std::chrono::milliseconds ti
     }
 
     char buffer[256];
-    const ssize_t n = ::read(fd_, buffer, sizeof(buffer));
+    const ssize_t n = ::read(local_fd, buffer, sizeof(buffer));
 
     if (n > 0) {
       rx_buffer_.append(buffer, static_cast<std::size_t>(n));
@@ -150,11 +187,23 @@ std::optional<std::string> SerialManager::read_line(std::chrono::milliseconds ti
         ::usleep(1000);
         continue;
       }
+
       if (errno == EINTR) {
         continue;
       }
 
-      connected_ = false;
+      {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (fd_ == local_fd) {
+          connected_ = false;
+        }
+      }
+
+      RCLCPP_WARN(
+        rclcpp::get_logger("serial_manager"),
+        "read() failed: errno=%d (%s)",
+        errno, std::strerror(errno));
+
       return std::nullopt;
     }
 
@@ -167,14 +216,17 @@ std::optional<std::string> SerialManager::read_line(std::chrono::milliseconds ti
 
 std::size_t SerialManager::available() const
 {
-  std::lock_guard<std::mutex> lock(mutex_);
-
-  if (!connected_ || fd_ < 0) {
-    return 0;
+  int local_fd = -1;
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!connected_ || fd_ < 0) {
+      return 0;
+    }
+    local_fd = fd_;
   }
 
   int bytes_available = 0;
-  if (::ioctl(fd_, FIONREAD, &bytes_available) < 0) {
+  if (::ioctl(local_fd, FIONREAD, &bytes_available) < 0) {
     return 0;
   }
 
@@ -187,25 +239,31 @@ std::size_t SerialManager::available() const
 
 void SerialManager::flush_input()
 {
-  std::lock_guard<std::mutex> lock(mutex_);
-
-  if (!connected_ || fd_ < 0) {
-    return;
+  int local_fd = -1;
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!connected_ || fd_ < 0) {
+      return;
+    }
+    local_fd = fd_;
+    rx_buffer_.clear();
   }
 
-  ::tcflush(fd_, TCIFLUSH);
-  rx_buffer_.clear();
+  ::tcflush(local_fd, TCIFLUSH);
 }
 
 void SerialManager::flush_output()
 {
-  std::lock_guard<std::mutex> lock(mutex_);
-
-  if (!connected_ || fd_ < 0) {
-    return;
+  int local_fd = -1;
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!connected_ || fd_ < 0) {
+      return;
+    }
+    local_fd = fd_;
   }
 
-  ::tcflush(fd_, TCOFLUSH);
+  ::tcflush(local_fd, TCOFLUSH);
 }
 
 bool SerialManager::open_port_locked(const std::string & port, uint32_t baudrate)

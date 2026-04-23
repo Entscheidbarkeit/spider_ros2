@@ -271,7 +271,7 @@ void McuNode::tx_worker_loop()
     if (!serial_manager_.is_connected()) {
       continue;
     }
-
+    RCLCPP_INFO(this->get_logger(), "sending: %s", pending->command.c_str());
     if (!serial_manager_.write_line(pending->command)) {
       RCLCPP_WARN(this->get_logger(), "Failed to write command: %s", pending->command.c_str());
       continue;
@@ -381,7 +381,7 @@ void McuNode::enqueue_command(
   pending.timeout = timeout;
   pending.high_priority = high_priority;
   pending.sequence_id = ++sequence_counter;
-
+  RCLCPP_INFO(this->get_logger(), "enqueue: %s", command.c_str());
   if (high_priority) {
     command_queue_.push_front(pending);
   } else {
