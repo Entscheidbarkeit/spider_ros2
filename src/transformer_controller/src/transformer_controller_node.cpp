@@ -1,6 +1,7 @@
 #include "transformer_controller/transformer_controller_node.hpp"
 
 #include <utility>
+#include <std_msgs/msg/string.hpp>
 
 namespace transformer_controller {
 
@@ -17,6 +18,10 @@ TransformerControllerNode::TransformerControllerNode() : Node(std::string(kNodeN
 
   // INIT state persists until the retract completes; ensures transforms are rejected beforehand.
   SetCurrentMode(Mode::kInit);
+
+  mcu_raw_pub_ = create_publisher<std_msgs::msg::String>(
+    "/mcu/cmd_raw",
+    10);
 
   // Periodic timer checks action servers until they are ready.
   startup_timer_ = create_wall_timer(kStartupTimerPeriod, [this]() { StartInitializationTick(); });
@@ -297,6 +302,13 @@ void TransformerControllerNode::ExecuteTransform(const std::shared_ptr<Transform
       return;
     }
 
+    if(!SendMcuRawCommand("D_POS")){
+      result->success = false;
+      result->message = "N20 move failed";
+      goal_handle->abort(result);
+      return;
+    }
+
     SetCurrentMode(Mode::kDrive);
   } else {
     publish_feedback(kFeedbackMovingFlight);
@@ -311,6 +323,13 @@ void TransformerControllerNode::ExecuteTransform(const std::shared_ptr<Transform
     if (!ExtendActuators()) {
       result->success = false;
       result->message = "actuator extend failed";
+      goal_handle->abort(result);
+      return;
+    }
+
+    if(!SendMcuRawCommand("F_POS")){
+      result->success = false;
+      result->message = "N20 move failed";
       goal_handle->abort(result);
       return;
     }
@@ -503,6 +522,23 @@ void TransformerControllerNode::CancelActiveGoalForShutdown() {
 
   ClearActiveGoal();
 }
+
+bool TransformerControllerNode::SendMcuRawCommand(const std::string & cmd)
+{
+  if (!mcu_raw_pub_) {
+    RCLCPP_ERROR(get_logger(), "MCU raw command publisher not initialized");
+    return false;
+  }
+
+  std_msgs::msg::String msg;
+  msg.data = cmd;
+
+  mcu_raw_pub_->publish(msg);
+
+  RCLCPP_INFO(get_logger(), "Published MCU command: %s", cmd.c_str());
+  return true;
+}
+
 
 void TransformerControllerNode::ClearActiveGoal() {
   // Reset under lock so HandleGoal observes consistent state.

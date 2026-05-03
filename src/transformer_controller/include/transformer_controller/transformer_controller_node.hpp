@@ -17,6 +17,7 @@
 
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
+#include <std_msgs/msg/string.hpp>
 
 #include "transformer_controller/action/transform_mode.hpp"
 #include "transformer_hw_actuators/action/move_actuator.hpp"
@@ -97,6 +98,8 @@ class TransformerControllerNode : public rclcpp::Node {
    * @param goal_handle Goal to process until completion.
    */
   void ExecuteTransform(const std::shared_ptr<TransformHandle> goal_handle);
+
+  bool SendMcuRawCommand(const std::string & cmd);
 
   // === Motion Helpers ===
 
@@ -250,6 +253,8 @@ class TransformerControllerNode : public rclcpp::Node {
   rclcpp::TimerBase::SharedPtr startup_timer_;
   std::thread worker_thread_;
   std::thread startup_thread_;
+
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr mcu_raw_pub_;
 
   mutable std::mutex active_mutex_;
   std::shared_ptr<TransformHandle> active_transform_goal_;

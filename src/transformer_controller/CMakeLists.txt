@@ -10,6 +10,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(std_msgs REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(rosidl_cmake REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
@@ -28,7 +29,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 
 add_executable(transformer_controller_node src/transformer_controller_node.cpp)
 target_include_directories(transformer_controller_node PUBLIC include)
-ament_target_dependencies(transformer_controller_node rclcpp rclcpp_action transformer_hw_actuators transformer_hw_servos)
+ament_target_dependencies(transformer_controller_node rclcpp rclcpp_action std_msgs transformer_hw_actuators transformer_hw_servos)
 
 # Replace deprecated rosidl_target_interfaces with modern pattern
 rosidl_get_typesupport_target(cpp_typesupport_target "${PROJECT_NAME}" "rosidl_typesupport_cpp")

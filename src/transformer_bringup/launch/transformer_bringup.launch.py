@@ -22,10 +22,12 @@ def generate_launch_description():
     servos_pkg = Path(get_package_share_directory('transformer_hw_servos'))
     actuators_pkg = Path(get_package_share_directory('transformer_hw_actuators'))
     controller_pkg = Path(get_package_share_directory('transformer_controller'))
+    mcu_pkg = Path(get_package_share_directory('spider_mcu'))
 
     servos_launch = servos_pkg / 'launch' / 'servos.launch.py'
     actuators_launch = actuators_pkg / 'launch' / 'actuator.launch.py'
     controller_launch = controller_pkg / 'launch' / 'transformer_controller.launch.py'
+    mcu_launch = mcu_pkg / 'launch' / 'mcu.launch.py'
     # Using direct node instantiation instead of rs_launch to ensure params YAML is applied at configure time
     # realsense_launch = realsense_pkg / 'launch' / 'rs_launch.py'
 
@@ -89,10 +91,17 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(str(actuators_launch))
     )
 
+    """ MCU """
+    mcu_include = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(str(mcu_launch))
+    ) 
+
     """ Transformer Controller (delayed start) """
     controller_include = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(str(controller_launch))
     )
+
+
     controller_start_delay_arg = DeclareLaunchArgument(
         'controller_start_delay',
         # Increase default delay to allow PWM/GPIO exports and backend initialisation on slower SBCs
@@ -217,6 +226,7 @@ def generate_launch_description():
         device_probe,
         servos_include,
         actuators_include,
+        mcu_include,
         controller_start,
         msp_node,
         rc_switch_start,
