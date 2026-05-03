@@ -1,0 +1,14 @@
+spider_mcu_node:
+  ros__parameters:
+    port: "/dev/ttyACM0"
+    baudrate: 115200
+
+    reconnect_period_ms: 1000
+    poll_period_ms: 10000
+    publish_period_ms: 100
+    ping_timeout_ms: 300
+    command_timeout_ms: 500
+
+    poll_adc: false
+    poll_position: false
+    poll_limits: false
